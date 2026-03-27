@@ -1,18 +1,9 @@
-runtime: python27
-api_version: 1
-threadsafe: false
+runtime: python312
+entrypoint: gunicorn -b :$PORT plinehandotcom:app
 
 handlers:
 - url: /images
   static_dir: images
 
-- url: /admin
-  script: $PYTHON_LIB/google/appengine/ext/admin
-  login: admin
-
-- url: /admin/.*
-  script: $PYTHON_LIB/google/appengine/ext/admin
-  login: admin
-
 - url: /.*
-  script: plinehandotcom.py
+  script: auto

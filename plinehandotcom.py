@@ -1,81 +1,57 @@
-import wsgiref.handlers
-from google.appengine.ext import webapp
-from google.appengine.ext.webapp import template
+from flask import Flask, render_template
 
-class MainPage(webapp.RequestHandler):
-  def get(self):
-    self.response.out.write(template.render('index.html', {}).decode())
+app = Flask(__name__, template_folder=".")
 
-class OfCourse(webapp.RequestHandler):
-  def get(self):
-    values = {
-      'bgcolor':  '#FFFFFF',
-      'text':     '#000000',
-      'next_url': '/',
-      'image':    'ofcourse.jpg'
-      }
-    self.response.out.write(template.render('template.html', values).decode())
 
-class FunnyMan(webapp.RequestHandler):
-  def get(self):
-    values = {
-      'bgcolor':  '#000000',
-      'text':     '#FFFFFF',
-      'next_url': 'brown',
-      'image':    'funnyman.jpg'
-      }
-    self.response.out.write(template.render('template.html', values).decode())
+def render_legacy_template(bgcolor: str, text: str, next_url: str, image: str):
+    return render_template(
+        "template.html",
+        bgcolor=bgcolor,
+        text=text,
+        next_url=next_url,
+        image=image,
+    )
 
-class Brown(webapp.RequestHandler):
-  def get(self):
-    values = {
-      'bgcolor':  '#000000',
-      'text':     '#FFFFFF',
-      'next_url': 'nurbs',
-      'image':    'brown.jpg'
-      }
-    self.response.out.write(template.render('template.html', values).decode())
 
-class Nurbs(webapp.RequestHandler):
-  def get(self):
-    values = {
-      'bgcolor':  '#FFFFFF',
-      'text':     '#000000',
-      'next_url': 'thenextlevel',
-      'image':    'nurbs.jpg'
-      }
-    self.response.out.write(template.render('template.html', values).decode())
+@app.get("/")
+def main_page():
+    return render_template("index.html")
 
-class TheNextLevel(webapp.RequestHandler):
-  def get(self):
-    values = {
-      'bgcolor':  '#FFFFFF',
-      'text':     '#000000',
-      'next_url': 'dog',
-      'image':    'thenextlevel.jpg'
-      }
-    self.response.out.write(template.render('template.html', values).decode())
 
-class Dog(webapp.RequestHandler):
-  def get(self):
-    values = {
-      'bgcolor':  '#000000',
-      'text':     '#FFFFFF',
-      'next_url': 'http://www.johnniemanzari.com',
-      'image':    'dog.jpg'
-      }
-    self.response.out.write(template.render('template.html', values).decode())
-    
-def main():
-  application = webapp.WSGIApplication([('/', MainPage),
-                                        ('/ofcourse', OfCourse),
-                                        ('/funnyman', FunnyMan),
-                                        ('/brown', Brown),
-                                        ('/nurbs', Nurbs),
-                                        ('/thenextlevel', TheNextLevel),
-                                        ('/dog', Dog)],
-                                       debug=True)
-  wsgiref.handlers.CGIHandler().run(application)
+@app.get("/ofcourse")
+def ofcourse():
+    return render_legacy_template("#FFFFFF", "#000000", "/", "ofcourse.jpg")
 
-if __name__ == '__main__':
-  main()
+
+@app.get("/funnyman")
+def funnyman():
+    return render_legacy_template("#000000", "#FFFFFF", "brown", "funnyman.jpg")
+
+
+@app.get("/brown")
+def brown():
+    return render_legacy_template("#000000", "#FFFFFF", "nurbs", "brown.jpg")
+
+
+@app.get("/nurbs")
+def nurbs():
+    return render_legacy_template("#FFFFFF", "#000000", "thenextlevel", "nurbs.jpg")
+
+
+@app.get("/thenextlevel")
+def thenextlevel():
+    return render_legacy_template("#FFFFFF", "#000000", "dog", "thenextlevel.jpg")
+
+
+@app.get("/dog")
+def dog():
+    return render_legacy_template(
+        "#000000",
+        "#FFFFFF",
+        "http://www.johnniemanzari.com",
+        "dog.jpg",
+    )
+
+
+if __name__ == "__main__":
+    app.run(host="127.0.0.1", port=8080, debug=True)
