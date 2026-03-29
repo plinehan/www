@@ -48,7 +48,7 @@ def dog():
     return render_legacy_template(
         "#000000",
         "#FFFFFF",
-        "http://www.johnniemanzari.com",
+        "http://johnniemanzari.com",
         "dog.jpg",
     )
 
