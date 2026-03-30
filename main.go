@@ -4,8 +4,12 @@ import (
 	"embed"
 	"html/template"
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
+	"time"
+
+	"github.com/lmittmann/tint"
 )
 
 //go:embed index.html template.html
@@ -21,6 +25,12 @@ type legacyPageData struct {
 type appServer struct {
 	indexTmpl  *template.Template
 	legacyTmpl *template.Template
+}
+
+func init() {
+	slog.SetDefault(slog.New(
+		tint.NewHandler(os.Stderr, &tint.Options{}),
+	))
 }
 
 func newServer() (*appServer, error) {
@@ -77,8 +87,18 @@ func (s *appServer) handleIndex(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func withRequestLogging(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		slog.Info("request", "method", r.Method, "path", r.URL.Path, "remote_addr", r.RemoteAddr)
+		next.ServeHTTP(w, r)
+		slog.Info("request", "method", r.Method, "path", r.URL.Path, "remote_addr", r.RemoteAddr, "duration", time.Since(start))
+	})
+}
+
 func (s *appServer) routes() http.Handler {
 	mux := http.NewServeMux()
+	mux.Handle("/images/", http.StripPrefix("/images/", http.FileServer(http.Dir("images"))))
 
 	mux.HandleFunc("/", methodGETOnly(s.handleIndex))
 	mux.HandleFunc("/ofcourse", methodGETOnly(func(w http.ResponseWriter, _ *http.Request) {
@@ -130,7 +150,7 @@ func (s *appServer) routes() http.Handler {
 		})
 	}))
 
-	return mux
+	return withRequestLogging(mux)
 }
 
 func main() {
@@ -144,7 +164,7 @@ func main() {
 		port = "8080"
 	}
 
-	log.Printf("listening on :%s", port)
+	slog.Warn("listening", "port", port)
 	if err := http.ListenAndServe(":"+port, server.routes()); err != nil {
 		log.Fatal(err)
 	}

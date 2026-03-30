@@ -46,12 +46,12 @@ func TestLegacyRouteContent(t *testing.T) {
 		wantImageRef string
 		wantHrefRef  string
 	}{
-		{path: "/ofcourse", wantImageRef: "images/ofcourse.jpg", wantHrefRef: `href="/"`},
-		{path: "/funnyman", wantImageRef: "images/funnyman.jpg", wantHrefRef: `href="brown"`},
-		{path: "/brown", wantImageRef: "images/brown.jpg", wantHrefRef: `href="nurbs"`},
-		{path: "/nurbs", wantImageRef: "images/nurbs.jpg", wantHrefRef: `href="thenextlevel"`},
-		{path: "/thenextlevel", wantImageRef: "images/thenextlevel.jpg", wantHrefRef: `href="dog"`},
-		{path: "/dog", wantImageRef: "images/dog.jpg", wantHrefRef: `href="http://johnniemanzari.com"`},
+		{path: "/ofcourse", wantImageRef: "/images/ofcourse.jpg", wantHrefRef: `href="/"`},
+		{path: "/funnyman", wantImageRef: "/images/funnyman.jpg", wantHrefRef: `href="brown"`},
+		{path: "/brown", wantImageRef: "/images/brown.jpg", wantHrefRef: `href="nurbs"`},
+		{path: "/nurbs", wantImageRef: "/images/nurbs.jpg", wantHrefRef: `href="thenextlevel"`},
+		{path: "/thenextlevel", wantImageRef: "/images/thenextlevel.jpg", wantHrefRef: `href="dog"`},
+		{path: "/dog", wantImageRef: "/images/dog.jpg", wantHrefRef: `href="http://johnniemanzari.com"`},
 	}
 
 	handler := newTestHandler(t)
@@ -69,6 +69,17 @@ func TestLegacyRouteContent(t *testing.T) {
 				t.Fatalf("body for %s missing href %q", tc.path, tc.wantHrefRef)
 			}
 		})
+	}
+}
+
+func TestImagesPathIsNotHandledByGetOnlyMiddleware(t *testing.T) {
+	handler := newTestHandler(t)
+	req := httptest.NewRequest(http.MethodPost, "/images/does-not-exist.jpg", nil)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code == http.StatusMethodNotAllowed {
+		t.Fatalf("status = %d, did not expect method not allowed for /images/*", rec.Code)
 	}
 }
 
