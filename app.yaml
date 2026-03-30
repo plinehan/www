@@ -1,5 +1,4 @@
-runtime: python312
-entrypoint: gunicorn -b :$PORT plinehandotcom:app
+runtime: go121
 automatic_scaling:
   max_instances: 5
 

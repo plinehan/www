@@ -4,8 +4,8 @@
   </head>
 
   <body
-    bgcolor="{{bgcolor}}"
-    text="{{text}}"
+    bgcolor="{{ .BgColor }}"
+    text="{{ .TextColor }}"
     marginwidth="0"
     marginheight="0"
     topmargin="0"
@@ -22,7 +22,7 @@
         text-align: center;
       "
     >
-      <a href="{{next_url}}"><img src="images/{{image}}" border="0" /></a>
+      <a href="{{ .NextURL }}"><img src="images/{{ .Image }}" border="0" /></a>
     </div>
   </body>
 </html>

@@ -30,3 +30,10 @@ repos:
             markdown,
             yaml,
           ]
+  - repo: local
+    hooks:
+      - id: gofmt
+        name: gofmt
+        entry: gofmt -w
+        language: system
+        types: [go]
