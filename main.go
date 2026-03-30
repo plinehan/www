@@ -15,7 +15,7 @@ import (
 //go:embed index.html template.html
 var contentFS embed.FS
 
-type legacyPageData struct {
+type pageData struct {
 	BgColor   string
 	TextColor string
 	NextURL   string
@@ -23,8 +23,8 @@ type legacyPageData struct {
 }
 
 type appServer struct {
-	indexTmpl  *template.Template
-	legacyTmpl *template.Template
+	indexTmpl *template.Template
+	pageTmpl  *template.Template
 }
 
 func init() {
@@ -38,7 +38,7 @@ func newServer() (*appServer, error) {
 	if err != nil {
 		return nil, err
 	}
-	legacyBytes, err := contentFS.ReadFile("template.html")
+	pageBytes, err := contentFS.ReadFile("template.html")
 	if err != nil {
 		return nil, err
 	}
@@ -47,14 +47,14 @@ func newServer() (*appServer, error) {
 	if err != nil {
 		return nil, err
 	}
-	legacyTmpl, err := template.New("legacy").Parse(string(legacyBytes))
+	pageTmpl, err := template.New("page").Parse(string(pageBytes))
 	if err != nil {
 		return nil, err
 	}
 
 	return &appServer{
-		indexTmpl:  indexTmpl,
-		legacyTmpl: legacyTmpl,
+		indexTmpl: indexTmpl,
+		pageTmpl:  pageTmpl,
 	}, nil
 }
 
@@ -69,9 +69,9 @@ func methodGETOnly(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-func (s *appServer) renderLegacyPage(w http.ResponseWriter, data legacyPageData) {
+func (s *appServer) renderPage(w http.ResponseWriter, data pageData) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := s.legacyTmpl.Execute(w, data); err != nil {
+	if err := s.pageTmpl.Execute(w, data); err != nil {
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 	}
 }
@@ -102,7 +102,7 @@ func (s *appServer) routes() http.Handler {
 
 	mux.HandleFunc("/", methodGETOnly(s.handleIndex))
 	mux.HandleFunc("/ofcourse", methodGETOnly(func(w http.ResponseWriter, _ *http.Request) {
-		s.renderLegacyPage(w, legacyPageData{
+		s.renderPage(w, pageData{
 			BgColor:   "#FFFFFF",
 			TextColor: "#000000",
 			NextURL:   "/",
@@ -110,7 +110,7 @@ func (s *appServer) routes() http.Handler {
 		})
 	}))
 	mux.HandleFunc("/funnyman", methodGETOnly(func(w http.ResponseWriter, _ *http.Request) {
-		s.renderLegacyPage(w, legacyPageData{
+		s.renderPage(w, pageData{
 			BgColor:   "#000000",
 			TextColor: "#FFFFFF",
 			NextURL:   "brown",
@@ -118,7 +118,7 @@ func (s *appServer) routes() http.Handler {
 		})
 	}))
 	mux.HandleFunc("/brown", methodGETOnly(func(w http.ResponseWriter, _ *http.Request) {
-		s.renderLegacyPage(w, legacyPageData{
+		s.renderPage(w, pageData{
 			BgColor:   "#000000",
 			TextColor: "#FFFFFF",
 			NextURL:   "nurbs",
@@ -126,7 +126,7 @@ func (s *appServer) routes() http.Handler {
 		})
 	}))
 	mux.HandleFunc("/nurbs", methodGETOnly(func(w http.ResponseWriter, _ *http.Request) {
-		s.renderLegacyPage(w, legacyPageData{
+		s.renderPage(w, pageData{
 			BgColor:   "#FFFFFF",
 			TextColor: "#000000",
 			NextURL:   "thenextlevel",
@@ -134,7 +134,7 @@ func (s *appServer) routes() http.Handler {
 		})
 	}))
 	mux.HandleFunc("/thenextlevel", methodGETOnly(func(w http.ResponseWriter, _ *http.Request) {
-		s.renderLegacyPage(w, legacyPageData{
+		s.renderPage(w, pageData{
 			BgColor:   "#FFFFFF",
 			TextColor: "#000000",
 			NextURL:   "dog",
@@ -142,7 +142,7 @@ func (s *appServer) routes() http.Handler {
 		})
 	}))
 	mux.HandleFunc("/dog", methodGETOnly(func(w http.ResponseWriter, _ *http.Request) {
-		s.renderLegacyPage(w, legacyPageData{
+		s.renderPage(w, pageData{
 			BgColor:   "#000000",
 			TextColor: "#FFFFFF",
 			NextURL:   "http://johnniemanzari.com",

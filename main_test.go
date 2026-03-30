@@ -40,7 +40,7 @@ func TestRoutesReturnOK(t *testing.T) {
 	}
 }
 
-func TestLegacyRouteContent(t *testing.T) {
+func TestPageRouteContent(t *testing.T) {
 	tests := []struct {
 		path         string
 		wantImageRef string
