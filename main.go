@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/lmittmann/tint"
+	"github.com/plinehan/www/sess"
 )
 
 //go:embed index.html template.html
@@ -154,6 +155,7 @@ func (s *appServer) routes() http.Handler {
 }
 
 func main() {
+	_ = sess.SessionSigningKey()
 	server, err := newServer()
 	if err != nil {
 		log.Fatalf("failed to initialize server: %v", err)

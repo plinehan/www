@@ -1,4 +1,4 @@
-package main
+package sess
 
 import (
 	"crypto/hmac"
@@ -17,16 +17,7 @@ const (
 	sessionMaxAge         = 7 * 24 * time.Hour
 )
 
-// sessions signs and verifies the sudo session cookie.
-type sessions struct {
-	key []byte
-}
-
-func newSessions(key []byte) *sessions {
-	return &sessions{key: key}
-}
-
-func sessionSigningKey() []byte {
+func SessionSigningKey() []byte {
 	if s := os.Getenv("SESSION_SECRET"); s != "" {
 		return []byte(s)
 	}
@@ -48,7 +39,7 @@ type signedCookieValue struct {
 	Sig   []byte
 }
 
-func (sess *sessions) signedValue(email string, expiresAt time.Time) (string, error) {
+func signedValue(email string, expiresAt time.Time) (string, error) {
 	cookieValue, err := json.Marshal(cookieValue{
 		Email:     email,
 		ExpiresAt: expiresAt,
@@ -56,7 +47,7 @@ func (sess *sessions) signedValue(email string, expiresAt time.Time) (string, er
 	if err != nil {
 		return "", err
 	}
-	mac := hmac.New(sha256.New, sess.key)
+	mac := hmac.New(sha256.New, SessionSigningKey())
 	mac.Write([]byte(cookieValue))
 	sig := mac.Sum(nil)
 	outer, err := json.Marshal(&signedCookieValue{
@@ -69,7 +60,7 @@ func (sess *sessions) signedValue(email string, expiresAt time.Time) (string, er
 	return base64.RawURLEncoding.EncodeToString(outer), nil
 }
 
-func (sess *sessions) parseCookie(value string) (email string, ok bool) {
+func parseCookie(value string) (email string, ok bool) {
 	raw, err := base64.RawURLEncoding.DecodeString(value)
 	if err != nil {
 		return "", false
@@ -84,7 +75,7 @@ func (sess *sessions) parseCookie(value string) (email string, ok bool) {
 	if err != nil {
 		return "", false
 	}
-	h := hmac.New(sha256.New, sess.key)
+	h := hmac.New(sha256.New, SessionSigningKey())
 	h.Write([]byte(signedCookieValue.Value))
 	if !hmac.Equal(h.Sum(nil), signedCookieValue.Sig) {
 		return "", false
@@ -98,17 +89,17 @@ func (sess *sessions) parseCookie(value string) (email string, ok bool) {
 	return cookieValue.Email, true
 }
 
-func (sess *sessions) fromRequest(r *http.Request) (email string, ok bool) {
+func fromRequest(r *http.Request) (email string, ok bool) {
 	c, err := r.Cookie(sudoSessionCookieName)
 	if err != nil || c.Value == "" {
 		return "", false
 	}
-	return sess.parseCookie(c.Value)
+	return parseCookie(c.Value)
 }
 
-func (sess *sessions) setCookie(w http.ResponseWriter, r *http.Request, email string) error {
+func setCookie(w http.ResponseWriter, r *http.Request, email string) error {
 	expiresAt := time.Now().Add(sessionMaxAge)
-	val, err := sess.signedValue(email, expiresAt)
+	val, err := signedValue(email, expiresAt)
 	if err != nil {
 		return err
 	}
