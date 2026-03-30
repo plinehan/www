@@ -164,7 +164,7 @@ func main() {
 		port = "8080"
 	}
 
-	slog.Warn("listening", "port", port)
+	slog.Warn("listening", "port", port, "url", "http://localhost:"+port)
 	if err := http.ListenAndServe(":"+port, server.routes()); err != nil {
 		log.Fatal(err)
 	}
