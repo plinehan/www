@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -29,64 +30,56 @@ func SessionSigningKey() []byte {
 	return []byte("dev-insecure-sudo-session")
 }
 
-type cookieValue struct {
+type cookiePayload struct {
 	Email     string    `json:"email"`
 	ExpiresAt time.Time `json:"expires_at"`
 }
 
-type signedCookieValue struct {
-	Value []byte
-	Sig   []byte
+func sign(key, data []byte) []byte {
+	mac := hmac.New(sha256.New, key)
+	mac.Write(data)
+	return mac.Sum(nil)
 }
 
 func signedValue(email string, expiresAt time.Time) (string, error) {
-	cookieValue, err := json.Marshal(cookieValue{
-		Email:     email,
-		ExpiresAt: expiresAt,
-	})
+	payload, err := json.Marshal(cookiePayload{Email: email, ExpiresAt: expiresAt})
 	if err != nil {
 		return "", err
 	}
-	mac := hmac.New(sha256.New, SessionSigningKey())
-	mac.Write([]byte(cookieValue))
-	sig := mac.Sum(nil)
-	outer, err := json.Marshal(&signedCookieValue{
-		Value: cookieValue,
-		Sig:   sig,
-	})
-	if err != nil {
-		return "", err
-	}
-	return base64.RawURLEncoding.EncodeToString(outer), nil
+	b64 := base64.RawURLEncoding.EncodeToString(payload)
+	sig := base64.RawURLEncoding.EncodeToString(sign(SessionSigningKey(), []byte(b64)))
+	return b64 + "." + sig, nil
 }
 
 func parseCookie(value string) (email string, ok bool) {
-	raw, err := base64.RawURLEncoding.DecodeString(value)
+	dot := strings.LastIndex(value, ".")
+	if dot < 0 {
+		return "", false
+	}
+	b64payload, b64sig := value[:dot], value[dot+1:]
+
+	sig, err := base64.RawURLEncoding.DecodeString(b64sig)
 	if err != nil {
 		return "", false
 	}
-	signedCookieValue := &signedCookieValue{}
-	err = json.Unmarshal(raw, signedCookieValue)
+	if !hmac.Equal(sign(SessionSigningKey(), []byte(b64payload)), sig) {
+		return "", false
+	}
+	payload, err := base64.RawURLEncoding.DecodeString(b64payload)
 	if err != nil {
 		return "", false
 	}
-	cookieValue := &cookieValue{}
-	err = json.Unmarshal(signedCookieValue.Value, cookieValue)
-	if err != nil {
+	var p cookiePayload
+	if err = json.Unmarshal(payload, &p); err != nil {
 		return "", false
 	}
-	h := hmac.New(sha256.New, SessionSigningKey())
-	h.Write([]byte(signedCookieValue.Value))
-	if !hmac.Equal(h.Sum(nil), signedCookieValue.Sig) {
+	if time.Now().After(p.ExpiresAt) {
 		return "", false
 	}
-	if time.Now().Unix() > cookieValue.ExpiresAt.Unix() {
+	if p.Email != allowedSudoEmail {
 		return "", false
 	}
-	if cookieValue.Email != allowedSudoEmail {
-		return "", false
-	}
-	return cookieValue.Email, true
+	return p.Email, true
 }
 
 func fromRequest(r *http.Request) (email string, ok bool) {
@@ -98,8 +91,7 @@ func fromRequest(r *http.Request) (email string, ok bool) {
 }
 
 func setCookie(w http.ResponseWriter, r *http.Request, email string) error {
-	expiresAt := time.Now().Add(sessionMaxAge)
-	val, err := signedValue(email, expiresAt)
+	val, err := signedValue(email, time.Now().Add(sessionMaxAge))
 	if err != nil {
 		return err
 	}
