@@ -22,11 +22,7 @@ func SessionSigningKey() []byte {
 	if s := os.Getenv("SESSION_SECRET"); s != "" {
 		return []byte(s)
 	}
-	if cs := os.Getenv("GOOGLE_OAUTH_CLIENT_SECRET"); cs != "" {
-		h := sha256.Sum256([]byte("sudo-session:" + cs))
-		return h[:]
-	}
-	slog.Warn("SESSION_SECRET and GOOGLE_OAUTH_CLIENT_SECRET unset; using insecure dev session key")
+	slog.Warn("SESSION_SECRET unset; using insecure dev session key")
 	return []byte("dev-insecure-sudo-session")
 }
 

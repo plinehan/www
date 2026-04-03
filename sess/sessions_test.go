@@ -9,143 +9,98 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestSessionSigningKey(t *testing.T) {
-	tests := []struct {
-		name     string
-		session  string
-		oauth    string
-		want     string
-		wantHash bool
-	}{
-		{
-			name:    "SESSION_SECRET wins",
-			session: "only-session",
-			oauth:   "oauth-secret",
-			want:    "only-session",
-		},
-		{
-			name:     "GOOGLE_OAUTH_CLIENT_SECRET derived",
-			session:  "",
-			oauth:    "client-secret",
-			wantHash: true,
-		},
-		{
-			name: "insecure default when unset",
-			want: "dev-insecure-sudo-session",
-		},
-	}
+const testKey = "test-signing-key"
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Setenv("SESSION_SECRET", tt.session)
-			t.Setenv("GOOGLE_OAUTH_CLIENT_SECRET", tt.oauth)
+// token signs a cookie value using testKey
+func token(t *testing.T, email string, d time.Duration) string {
+	t.Helper()
+	t.Setenv("SESSION_SECRET", testKey)
+	val, err := signedValue(email, time.Now().Add(d))
+	require.NoError(t, err)
+	return val
+}
 
-			got := SessionSigningKey()
-			if tt.wantHash {
-				require.Len(t, got, 32, "SessionSigningKey() should be sha256")
-				require.NotEqual(t, tt.oauth, string(got), "must not equal raw client secret")
-			} else {
-				require.Equal(t, tt.want, string(got))
-			}
-		})
-	}
+func TestSessionSigningKey_sessionSecret(t *testing.T) {
+	t.Setenv("SESSION_SECRET", "my-secret")
+	require.Equal(t, []byte("my-secret"), SessionSigningKey())
+}
+
+func TestSessionSigningKey_insecureDefault(t *testing.T) {
+	t.Setenv("SESSION_SECRET", "")
+	t.Setenv("GOOGLE_OAUTH_CLIENT_SECRET", "")
+	require.Equal(t, []byte("dev-insecure-sudo-session"), SessionSigningKey())
 }
 
 func TestParseCookie_roundTrip(t *testing.T) {
-	t.Setenv("SESSION_SECRET", "test-signing-key-32bytes!!")
-	exp := time.Now().Add(time.Hour)
-	val, err := signedValue(allowedSudoEmail, exp)
-	require.NoError(t, err)
+	val := token(t, allowedSudoEmail, time.Hour)
 	got, ok := parseCookie(val)
 	require.True(t, ok)
 	require.Equal(t, allowedSudoEmail, got)
 }
 
-func TestParseCookie_wrongSigningKey(t *testing.T) {
-	t.Setenv("SESSION_SECRET", "key-a")
-	exp := time.Now().Add(time.Hour)
-	val, err := signedValue(allowedSudoEmail, exp)
-	require.NoError(t, err)
-
-	t.Setenv("SESSION_SECRET", "key-b")
+func TestParseCookie_wrongKey(t *testing.T) {
+	val := token(t, allowedSudoEmail, time.Hour)
+	t.Setenv("SESSION_SECRET", "different-key")
 	_, ok := parseCookie(val)
-	require.False(t, ok, "parseCookie accepted value signed with different key")
+	require.False(t, ok)
 }
 
 func TestParseCookie_expired(t *testing.T) {
-	t.Setenv("SESSION_SECRET", "some-key")
-	exp := time.Now().Add(-time.Hour)
-	val, err := signedValue(allowedSudoEmail, exp)
-	require.NoError(t, err)
+	val := token(t, allowedSudoEmail, -time.Hour)
 	_, ok := parseCookie(val)
-	require.False(t, ok, "parseCookie accepted expired session")
+	require.False(t, ok)
 }
 
 func TestParseCookie_disallowedEmail(t *testing.T) {
-	t.Setenv("SESSION_SECRET", "some-key")
-	exp := time.Now().Add(time.Hour)
-	val, err := signedValue("someone.else@example.com", exp)
-	require.NoError(t, err)
+	val := token(t, "someone@example.com", time.Hour)
 	_, ok := parseCookie(val)
-	require.False(t, ok, "parseCookie accepted non-allowlisted email")
+	require.False(t, ok)
 }
 
 func TestParseCookie_malformed(t *testing.T) {
-	for _, raw := range []string{
-		"",
-		"nodot",
-		"not-base64!.deadbeef",
-		"a.b",
-	} {
+	t.Setenv("SESSION_SECRET", testKey)
+	for _, raw := range []string{"", ".", "nodot", "not-base64!.sig", "payload.not-base64!"} {
 		_, ok := parseCookie(raw)
-		require.False(t, ok, "parseCookie(%q)", raw)
+		require.False(t, ok, "parseCookie(%q) should fail", raw)
 	}
 }
 
-func TestFromRequest(t *testing.T) {
-	t.Setenv("SESSION_SECRET", "some-key")
-	t.Run("missing cookie", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodGet, "/", nil)
-		_, ok := fromRequest(req)
-		require.False(t, ok, "fromRequest without cookie should fail")
-	})
-	t.Run("valid cookie", func(t *testing.T) {
-		val, err := signedValue(allowedSudoEmail, time.Now().Add(time.Hour))
-		require.NoError(t, err)
-		req := httptest.NewRequest(http.MethodGet, "/", nil)
-		req.AddCookie(&http.Cookie{Name: sudoSessionCookieName, Value: val})
-		email, ok := fromRequest(req)
-		require.True(t, ok)
-		require.Equal(t, allowedSudoEmail, email)
-	})
+func TestFromRequest_missingCookie(t *testing.T) {
+	t.Setenv("SESSION_SECRET", testKey)
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	_, ok := fromRequest(req)
+	require.False(t, ok)
 }
 
-func TestSetCookie(t *testing.T) {
-	t.Setenv("SESSION_SECRET", "some-key")
-	rec := httptest.NewRecorder()
+func TestFromRequest_validCookie(t *testing.T) {
+	val := token(t, allowedSudoEmail, time.Hour)
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	require.NoError(t, setCookie(rec, req, allowedSudoEmail))
-	res := rec.Result()
-	defer res.Body.Close()
+	req.AddCookie(&http.Cookie{Name: sudoSessionCookieName, Value: val})
+	email, ok := fromRequest(req)
+	require.True(t, ok)
+	require.Equal(t, allowedSudoEmail, email)
+}
+
+func TestSetCookie_roundTrip(t *testing.T) {
+	t.Setenv("SESSION_SECRET", testKey)
+	rec := httptest.NewRecorder()
+	require.NoError(t, setCookie(rec, httptest.NewRequest(http.MethodGet, "/", nil), allowedSudoEmail))
 
 	req2 := httptest.NewRequest(http.MethodGet, "/sudo", nil)
-	for _, c := range res.Cookies() {
-		if c.Name == sudoSessionCookieName {
-			req2.AddCookie(c)
-		}
+	for _, c := range rec.Result().Cookies() {
+		req2.AddCookie(c)
 	}
 	email, ok := fromRequest(req2)
 	require.True(t, ok)
 	require.Equal(t, allowedSudoEmail, email)
-	require.Contains(t, res.Header.Get("Set-Cookie"), "HttpOnly")
+	require.Contains(t, rec.Header().Get("Set-Cookie"), "HttpOnly")
 }
 
 func TestSetCookie_secureBehindProxy(t *testing.T) {
-	t.Setenv("SESSION_SECRET", "some-key")
+	t.Setenv("SESSION_SECRET", testKey)
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	req.Header.Set("X-Forwarded-Proto", "https")
 	require.NoError(t, setCookie(rec, req, allowedSudoEmail))
-	raw := rec.Header().Get("Set-Cookie")
-	require.Contains(t, raw, "Secure", "expected Secure flag when X-Forwarded-Proto=https: %q", raw)
+	require.Contains(t, rec.Header().Get("Set-Cookie"), "Secure")
 }
