@@ -31,8 +31,8 @@ func SessionSigningKey() []byte {
 }
 
 type cookiePayload struct {
-	Email     string    `json:"email"`
-	ExpiresAt time.Time `json:"expires_at"`
+	Email     string `json:"email"`
+	ExpiresAt int64  `json:"expires_at"`
 }
 
 func sign(key, data []byte) []byte {
@@ -42,7 +42,7 @@ func sign(key, data []byte) []byte {
 }
 
 func signedValue(email string, expiresAt time.Time) (string, error) {
-	payload, err := json.Marshal(cookiePayload{Email: email, ExpiresAt: expiresAt})
+	payload, err := json.Marshal(cookiePayload{Email: email, ExpiresAt: expiresAt.Unix()})
 	if err != nil {
 		return "", err
 	}
@@ -73,7 +73,7 @@ func parseCookie(value string) (email string, ok bool) {
 	if err = json.Unmarshal(payload, &p); err != nil {
 		return "", false
 	}
-	if time.Now().After(p.ExpiresAt) {
+	if time.Now().Unix() > p.ExpiresAt {
 		return "", false
 	}
 	if p.Email != allowedSudoEmail {
