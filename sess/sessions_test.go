@@ -27,8 +27,14 @@ func TestSessionSigningKey_sessionSecret(t *testing.T) {
 
 func TestSessionSigningKey_insecureDefault(t *testing.T) {
 	t.Setenv("SESSION_SECRET", "")
-	t.Setenv("GOOGLE_OAUTH_CLIENT_SECRET", "")
+	t.Setenv("GAE_ENV", "")
 	require.Equal(t, []byte("dev-insecure-sudo-session"), SessionSigningKey())
+}
+
+func TestSessionSigningKey_panicInGAE(t *testing.T) {
+	t.Setenv("SESSION_SECRET", "")
+	t.Setenv("GAE_ENV", "standard")
+	require.Panics(t, func() { SessionSigningKey() })
 }
 
 func TestParseCookie_roundTrip(t *testing.T) {

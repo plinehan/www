@@ -18,9 +18,16 @@ const (
 	sessionMaxAge         = 7 * 24 * time.Hour
 )
 
+func inGAE() bool {
+	return os.Getenv("GAE_ENV") != ""
+}
+
 func SessionSigningKey() []byte {
 	if s := os.Getenv("SESSION_SECRET"); s != "" {
 		return []byte(s)
+	}
+	if inGAE() {
+		panic("SESSION_SECRET must be set in production")
 	}
 	slog.Warn("SESSION_SECRET unset; using insecure dev session key")
 	return []byte("dev-insecure-sudo-session")
