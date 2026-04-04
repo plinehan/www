@@ -74,7 +74,7 @@ func TestParseCookie_malformed(t *testing.T) {
 func TestFromRequest_missingCookie(t *testing.T) {
 	t.Setenv("SESSION_SECRET", testKey)
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	_, ok := fromRequest(req)
+	_, ok := FromRequest(req)
 	require.False(t, ok)
 }
 
@@ -82,7 +82,7 @@ func TestFromRequest_validCookie(t *testing.T) {
 	val := token(t, allowedSudoEmail, time.Hour)
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	req.AddCookie(&http.Cookie{Name: sudoSessionCookieName, Value: val})
-	email, ok := fromRequest(req)
+	email, ok := FromRequest(req)
 	require.True(t, ok)
 	require.Equal(t, allowedSudoEmail, email)
 }
@@ -90,13 +90,13 @@ func TestFromRequest_validCookie(t *testing.T) {
 func TestSetCookie_roundTrip(t *testing.T) {
 	t.Setenv("SESSION_SECRET", testKey)
 	rec := httptest.NewRecorder()
-	require.NoError(t, setCookie(rec, httptest.NewRequest(http.MethodGet, "/", nil), allowedSudoEmail))
+	require.NoError(t, SetCookie(rec, httptest.NewRequest(http.MethodGet, "/", nil), allowedSudoEmail))
 
 	req2 := httptest.NewRequest(http.MethodGet, "/sudo", nil)
 	for _, c := range rec.Result().Cookies() {
 		req2.AddCookie(c)
 	}
-	email, ok := fromRequest(req2)
+	email, ok := FromRequest(req2)
 	require.True(t, ok)
 	require.Equal(t, allowedSudoEmail, email)
 	require.Contains(t, rec.Header().Get("Set-Cookie"), "HttpOnly")
@@ -107,6 +107,6 @@ func TestSetCookie_secureBehindProxy(t *testing.T) {
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	req.Header.Set("X-Forwarded-Proto", "https")
-	require.NoError(t, setCookie(rec, req, allowedSudoEmail))
+	require.NoError(t, SetCookie(rec, req, allowedSudoEmail))
 	require.Contains(t, rec.Header().Get("Set-Cookie"), "Secure")
 }

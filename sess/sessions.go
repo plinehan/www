@@ -85,7 +85,7 @@ func parseCookie(value string) (email string, ok bool) {
 	return p.Email, true
 }
 
-func fromRequest(r *http.Request) (email string, ok bool) {
+func FromRequest(r *http.Request) (email string, ok bool) {
 	c, err := r.Cookie(sudoSessionCookieName)
 	if err != nil || c.Value == "" {
 		return "", false
@@ -93,7 +93,7 @@ func fromRequest(r *http.Request) (email string, ok bool) {
 	return parseCookie(c.Value)
 }
 
-func setCookie(w http.ResponseWriter, r *http.Request, email string) error {
+func SetCookie(w http.ResponseWriter, r *http.Request, email string) error {
 	val, err := signedValue(email, time.Now().Add(sessionMaxAge))
 	if err != nil {
 		return err

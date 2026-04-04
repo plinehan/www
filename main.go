@@ -151,6 +151,9 @@ func (s *appServer) routes() http.Handler {
 		})
 	}))
 
+	mux.HandleFunc("/sudo/login", methodGETOnly(handleLogin))
+	mux.HandleFunc("/sudo/callback", methodGETOnly(handleCallback))
+
 	return withRequestLogging(mux)
 }
 
