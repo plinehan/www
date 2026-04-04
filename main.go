@@ -2,6 +2,7 @@ package main
 
 import (
 	"embed"
+	"fmt"
 	"html/template"
 	"log"
 	"log/slog"
@@ -151,6 +152,14 @@ func (s *appServer) routes() http.Handler {
 		})
 	}))
 
+	mux.HandleFunc("/sudo", methodGETOnly(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		if _, ok := sess.FromRequest(r); ok {
+			fmt.Fprintln(w, "logged in")
+		} else {
+			fmt.Fprintln(w, "not logged in — <a href=/sudo/login>log in</a>")
+		}
+	}))
 	mux.HandleFunc("/sudo/login", methodGETOnly(handleLogin))
 	mux.HandleFunc("/sudo/callback", methodGETOnly(handleCallback))
 
