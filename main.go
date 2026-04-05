@@ -98,59 +98,31 @@ func withRequestLogging(next http.Handler) http.Handler {
 	})
 }
 
+func (s *appServer) registerPageRoutes(mux *http.ServeMux) {
+	type route struct {
+		path string
+		pageData
+	}
+	for _, r := range []route{
+		{"/ofcourse", pageData{"#FFFFFF", "#000000", "/", "ofcourse.jpg"}},
+		{"/funnyman", pageData{"#000000", "#FFFFFF", "brown", "funnyman.jpg"}},
+		{"/brown", pageData{"#000000", "#FFFFFF", "nurbs", "brown.jpg"}},
+		{"/nurbs", pageData{"#FFFFFF", "#000000", "thenextlevel", "nurbs.jpg"}},
+		{"/thenextlevel", pageData{"#FFFFFF", "#000000", "dog", "thenextlevel.jpg"}},
+		{"/dog", pageData{"#000000", "#FFFFFF", "http://johnniemanzari.com", "dog.jpg"}},
+	} {
+		mux.HandleFunc(r.path, methodGETOnly(func(w http.ResponseWriter, _ *http.Request) {
+			s.renderPage(w, r.pageData)
+		}))
+	}
+}
+
 func (s *appServer) routes() http.Handler {
 	mux := http.NewServeMux()
 	mux.Handle("/images/", http.StripPrefix("/images/", http.FileServer(http.Dir("images"))))
 
 	mux.HandleFunc("/", methodGETOnly(s.handleIndex))
-	mux.HandleFunc("/ofcourse", methodGETOnly(func(w http.ResponseWriter, _ *http.Request) {
-		s.renderPage(w, pageData{
-			BgColor:   "#FFFFFF",
-			TextColor: "#000000",
-			NextURL:   "/",
-			Image:     "ofcourse.jpg",
-		})
-	}))
-	mux.HandleFunc("/funnyman", methodGETOnly(func(w http.ResponseWriter, _ *http.Request) {
-		s.renderPage(w, pageData{
-			BgColor:   "#000000",
-			TextColor: "#FFFFFF",
-			NextURL:   "brown",
-			Image:     "funnyman.jpg",
-		})
-	}))
-	mux.HandleFunc("/brown", methodGETOnly(func(w http.ResponseWriter, _ *http.Request) {
-		s.renderPage(w, pageData{
-			BgColor:   "#000000",
-			TextColor: "#FFFFFF",
-			NextURL:   "nurbs",
-			Image:     "brown.jpg",
-		})
-	}))
-	mux.HandleFunc("/nurbs", methodGETOnly(func(w http.ResponseWriter, _ *http.Request) {
-		s.renderPage(w, pageData{
-			BgColor:   "#FFFFFF",
-			TextColor: "#000000",
-			NextURL:   "thenextlevel",
-			Image:     "nurbs.jpg",
-		})
-	}))
-	mux.HandleFunc("/thenextlevel", methodGETOnly(func(w http.ResponseWriter, _ *http.Request) {
-		s.renderPage(w, pageData{
-			BgColor:   "#FFFFFF",
-			TextColor: "#000000",
-			NextURL:   "dog",
-			Image:     "thenextlevel.jpg",
-		})
-	}))
-	mux.HandleFunc("/dog", methodGETOnly(func(w http.ResponseWriter, _ *http.Request) {
-		s.renderPage(w, pageData{
-			BgColor:   "#000000",
-			TextColor: "#FFFFFF",
-			NextURL:   "http://johnniemanzari.com",
-			Image:     "dog.jpg",
-		})
-	}))
+	s.registerPageRoutes(mux)
 
 	mux.HandleFunc("/sudo", methodGETOnly(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
